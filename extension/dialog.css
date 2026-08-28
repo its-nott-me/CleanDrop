@@ -1,0 +1,194 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+
+    font-family:
+        Inter,
+        Segoe UI,
+        Arial,
+        sans-serif;
+
+    background: #f7f7f7;
+
+    color: #171717;
+}
+
+
+.dialog {
+    width: 100%;
+
+    padding: 24px;
+}
+
+
+.header h1 {
+    margin: 0;
+
+    font-size: 20px;
+}
+
+
+.header p {
+    margin: 4px 0 20px;
+
+    color: #707070;
+
+    font-size: 13px;
+}
+
+
+.file {
+    padding: 12px;
+
+    border-radius: 8px;
+
+    background: white;
+
+    margin-bottom: 18px;
+}
+
+
+.file-label {
+    font-size: 11px;
+
+    color: #777;
+
+    margin-bottom: 4px;
+}
+
+
+.original-name {
+    font-size: 13px;
+
+    word-break: break-all;
+}
+
+
+.field {
+    margin-bottom: 18px;
+}
+
+
+label {
+    display: block;
+
+    font-size: 13px;
+
+    font-weight: 600;
+
+    margin-bottom: 7px;
+}
+
+
+input[type="text"],
+select {
+    width: 100%;
+
+    padding: 10px;
+
+    border: 1px solid #d5d5d5;
+
+    border-radius: 7px;
+
+    background: white;
+
+    font-size: 13px;
+
+    outline: none;
+}
+
+
+input[type="text"]:focus,
+select:focus {
+    border-color: #777;
+}
+
+
+.checkbox-row {
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    margin-bottom: 12px;
+}
+
+
+.checkbox-row input {
+    margin: 0;
+}
+
+
+.expiry {
+    display: flex;
+
+    align-items: center;
+
+    gap: 10px;
+}
+
+
+.expiry label {
+    margin: 0;
+
+    white-space: nowrap;
+}
+
+
+.expiry select {
+    width: auto;
+
+    flex: 1;
+}
+
+
+.hidden {
+    display: none;
+}
+
+
+.actions {
+    display: flex;
+
+    justify-content: flex-end;
+
+    gap: 8px;
+
+    margin-top: 24px;
+}
+
+
+button {
+    border: none;
+
+    border-radius: 7px;
+
+    padding: 9px 16px;
+
+    font-size: 13px;
+
+    cursor: pointer;
+}
+
+
+.primary {
+    background: #171717;
+
+    color: white;
+}
+
+
+.secondary {
+    background: #e8e8e8;
+
+    color: #222;
+}
+
+
+button:hover {
+    opacity: 0.85;
+}

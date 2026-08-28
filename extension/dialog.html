@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>CleanDrop</title>
+
+    <link
+        rel="stylesheet"
+        href="dialog.css"
+    >
+</head>
+
+<body>
+
+    <main class="dialog">
+
+        <div class="header">
+            <h1>CleanDrop</h1>
+            <p>Before downloading...</p>
+        </div>
+
+
+        <section class="file">
+
+            <div class="file-label">
+                File
+            </div>
+
+            <div
+                id="originalFilename"
+                class="original-name"
+            >
+                Loading...
+            </div>
+
+        </section>
+
+
+        <section class="field">
+
+            <label for="filename">
+                Filename
+            </label>
+
+            <input
+                id="filename"
+                type="text"
+                autocomplete="off"
+            >
+
+        </section>
+
+
+        <section class="temporary">
+
+            <label class="checkbox-row">
+
+                <input
+                    id="temporary"
+                    type="checkbox"
+                >
+
+                <span>
+                    Delete automatically
+                </span>
+
+            </label>
+
+
+            <div
+                id="expirySection"
+                class="expiry hidden"
+            >
+
+                <label for="expiry">
+                    Delete after
+                </label>
+
+                <select id="expiry">
+
+                    <option value="10">
+                        10 sec (test)
+                    </option>
+
+                    <option value="3600">
+                        1 hour
+                    </option>
+
+                    <option value="21600">
+                        6 hours
+                    </option>
+
+                    <option
+                        value="86400"
+                        selected
+                    >
+                        24 hours
+                    </option>
+
+                    <option value="259200">
+                        3 days
+                    </option>
+
+                    <option value="604800">
+                        7 days
+                    </option>
+
+                </select>
+
+            </div>
+
+        </section>
+
+
+        <div class="actions">
+
+            <button
+                id="cancel"
+                class="secondary"
+            >
+                Cancel
+            </button>
+
+            <button
+                id="download"
+                class="primary"
+            >
+                Download
+            </button>
+
+        </div>
+
+    </main>
+
+    <script src="dialog.js"></script>
+
+</body>
+
+</html>

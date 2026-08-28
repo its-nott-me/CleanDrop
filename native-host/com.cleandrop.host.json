@@ -1,0 +1,9 @@
+{
+  "name": "com.cleandrop.host",
+  "description": "CleanDrop Native Messaging Host",
+  "path": "D:\\coding\\Portfolio\\CleanDrop\\native-host\\cleandrop-host.exe",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://appojllcmegjdpibnakpghijkonpghbj/"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "CleanDrop",
+  "version": "0.1.0",
+  "description": "Smart download manager.",
+
+  "permissions": [
+    "downloads",
+    "nativeMessaging",
+    "notifications",
+    "windows"
+  ],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "action": {
+    "default_title": "CleanDrop"
+  }
+}

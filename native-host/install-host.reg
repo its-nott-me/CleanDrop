@@ -1,0 +1,4 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\Software\Google\Chrome\NativeMessagingHosts\com.cleandrop.host]
+@="D:\\coding\\Portfolio\\CleanDrop\\native-host\\com.cleandrop.host.json"
