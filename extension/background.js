@@ -1,19 +1,26 @@
-const HOST_NAME = "com.cleandrop.host";
-const pendingDownloads = new Map();
-const pendingDownloadOptions = new Map();
+importScripts(
+    "filename-analyzer.js"
+);
 
-const DIALOG_WIDTH = 430;
-const DIALOG_HEIGHT = 430;
+const HOST_NAME = "com.cleandrop.host";
+
+const DEFAULT_DELETE_SECONDS = 10
+    // 7 * 24 * 60 * 60;
+
 
 console.log("CleanDrop extension loaded.");
 
 
-function sendToCompanion(message) {
+// ============================================================
+// NATIVE MESSAGING
+// ============================================================
+
+function sendToCompanion(message, onSuccess) {
 
     chrome.runtime.sendNativeMessage(
         HOST_NAME,
         message,
-        (response) => {
+        response => {
 
             if (chrome.runtime.lastError) {
 
@@ -25,29 +32,40 @@ function sendToCompanion(message) {
                 return;
             }
 
+
             console.log(
                 "Companion response:",
                 response
             );
 
-            if (response?.status === "success") {
 
-                showDownloadNotification(
-                    {
-                        id: message.id,
-                        filename: message.filename
-                    },
-                    response
-                );
+            if (
+                response?.status === "success" &&
+                onSuccess
+            ) {
+
+                onSuccess(response);
             }
         }
     );
 }
 
-function showDownloadNotification(download, companionResponse) {
+
+
+// ============================================================
+// DOWNLOAD NOTIFICATION
+// ============================================================
+function showDownloadNotification(download) {
 
     const notificationId =
-        `download-${download.id}`;
+        `cleandrop-download-${download.id}`;
+
+
+    const filename =
+        download.filename
+            .split("\\")
+            .pop();
+
 
     chrome.notifications.create(
         notificationId,
@@ -59,13 +77,29 @@ function showDownloadNotification(download, companionResponse) {
             title: "CleanDrop",
 
             message:
-                `Downloaded: ${download.filename.split("\\").pop()}`,
+                `${filename} downloaded`,
 
-            contextMessage:
-                "Analyzing download..."
+            buttons: [
+                {
+                    title: "Schedule delete"
+                },
+                {
+                    title: "Custom 🕒"
+                }
+            ],
+
+            priority: 1,
+
+            requireInteraction: true
         }
     );
 }
+
+
+
+// ============================================================
+// DOWNLOAD COMPLETION
+// ============================================================
 
 chrome.downloads.onChanged.addListener(
     async (delta) => {
@@ -88,6 +122,7 @@ chrome.downloads.onChanged.addListener(
             !results ||
             results.length === 0
         ) {
+
             console.error(
                 "Could not find completed download:",
                 delta.id
@@ -112,25 +147,13 @@ chrome.downloads.onChanged.addListener(
         );
 
 
-        const options =
-            pendingDownloadOptions.get(
-                delta.id
-            );
-
-
-        pendingDownloadOptions.delete(
-            delta.id
-        );
-
-
-        // Now we have the actual path.
+        // This is the ACTUAL final path
+        // chosen through Chrome's Save As.
         const actualPath =
             download.filename;
 
 
-        // Send the completed download
-        // and ACTUAL path to Python.
-        sendToCompanion({
+        const message = {
 
             event:
                 "download_completed",
@@ -157,191 +180,282 @@ chrome.downloads.onChanged.addListener(
                 download.startTime,
 
             endTime:
-                download.endTime,
+                download.endTime
+        };
 
-            temporary:
-                options?.temporary ?? false,
 
-            expirySeconds:
-                options?.expirySeconds ?? null,
+        sendToCompanion(
+            message,
 
-            requestedFilename:
-                options?.requestedFilename ?? null
-        });
+            response => {
+
+                console.log(
+                    "Download registered:",
+                    response
+                );
+
+
+                showDownloadNotification(
+                    download
+                );
+            }
+        );
     }
 );
+
+
+
+// ============================================================
+// FILENAME HANDLING
+// ============================================================
+//
+// For now we don't modify the filename.
+// Later this is where our filename analyzer
+// can suggest a better name.
+//
 
 chrome.downloads.onDeterminingFilename.addListener(
     (download, suggest) => {
 
-        const requestId = crypto.randomUUID();
-
-        pendingDownloads.set(requestId, {
-            downloadId: download.id,
-            suggest: suggest
-        });
-
-        const filename =
+        console.log(
+            "Analyzing filename:",
             download.filename
-                .split("\\")
-                .pop();
-
-        const dialogUrl =
-            chrome.runtime.getURL("dialog.html") +
-            `?requestId=${encodeURIComponent(requestId)}` +
-            `&filename=${encodeURIComponent(filename)}`;
-        
-        chrome.windows.create(
-            {
-                url: dialogUrl,
-                type: "popup",
-                width: 430,
-                height: 430,
-                focused: true
-            },
-            (window) => {
-
-                if (chrome.runtime.lastError) {
-
-                    console.error(
-                        "Failed to open CleanDrop dialog:",
-                        chrome.runtime.lastError.message
-                    );
-
-                    // Fail open: let Chrome continue
-                    // with the original filename.
-                    pendingDownloads.delete(requestId);
-
-                    suggest();
-
-                    return;
-                }
-
-                console.log(
-                    "CleanDrop dialog opened:",
-                    window.id
-                );
-            }
         );
 
-        // CRITICAL:
-        // Tell Chrome that suggest() will be called later.
-        return true;
+
+        const result =
+            analyzeFilename(
+                download
+            );
+
+
+        console.log(
+            "Filename analysis:",
+            result
+        );
+
+
+        if (
+            !result.changed
+        ) {
+
+            suggest();
+
+            return;
+        }
+
+
+        suggest({
+
+            filename:
+                result.filename,
+
+            conflictAction:
+                "uniquify"
+        });
+
     }
 );
 
-function getExtension(filename) {
-
-    const name =
-        filename
-            .split("\\")
-            .pop();
-
-    const index =
-        name.lastIndexOf(".");
 
 
-    if (index <= 0) {
-        return "";
-    }
+// ============================================================
+// NOTIFICATION BUTTONS
+// ============================================================
 
-
-    return name.substring(index);
-}
-
-function ensureExtension(
-    filename,
-    extension
-) {
-
-    if (!extension) {
-        return filename;
-    }
-
-
-    if (
-        filename
-            .toLowerCase()
-            .endsWith(
-                extension.toLowerCase()
-            )
-    ) {
-        return filename;
-    }
-
-
-    return filename + extension;
-}
-
-chrome.runtime.onMessage.addListener(
-    (message) => {
+chrome.notifications.onButtonClicked.addListener(
+    async (
+        notificationId,
+        buttonIndex
+    ) => {
 
         if (
-            message.type !==
-            "download_decision"
+            !notificationId.startsWith(
+                "cleandrop-download-"
+            )
         ) {
             return;
         }
 
-        const pending =
-            pendingDownloads.get(
-                message.requestId
+
+        const downloadId =
+            Number(
+                notificationId.replace(
+                    "cleandrop-download-",
+                    ""
+                )
             );
 
-        if (!pending) {
-            console.error(
-                "Pending download not found:",
-                message.requestId
-            );
 
-            return;
-        }
+        // ==========================================
+        // DEFAULT DELETE
+        // ==========================================
 
-        pendingDownloads.delete(
-            message.requestId
-        );
+        if (buttonIndex === 0) {
 
-        const {
-            downloadId,
-            suggest
-        } = pending;
-
-
-        // User cancelled.
-        if (!message.accepted) {
-
-            chrome.downloads.cancel(
+            console.log(
+                "Scheduling deletion with default:",
                 downloadId
             );
 
+
+            scheduleDeletion(
+                downloadId,
+                DEFAULT_DELETE_SECONDS
+            );
+
+
+            await chrome.notifications.clear(
+                notificationId
+            );
+
+
             return;
         }
 
 
-        const requestedName =
-            message.filename;
+        // ==========================================
+        // CUSTOM DELETE
+        // ==========================================
+
+        if (buttonIndex === 1) {
+
+            console.log(
+                "Opening custom duration picker:",
+                downloadId
+            );
 
 
-        suggest({
-            filename: requestedName,
-            conflictAction: "uniquify"
-        });
+            openDurationPicker(
+                downloadId,
+                notificationId
+            );
 
 
-        // Save the user's temporary-download
-        // preference for after completion.
-        pendingDownloadOptions.set(
-            downloadId,
-            {
-                temporary:
-                    message.temporary,
+            return;
+        }
 
-                expirySeconds:
-                    message.expirySeconds,
-
-                requestedFilename:
-                    requestedName
-            }
-        );
     }
 );
+
+
+
+// ============================================================
+// SCHEDULE DELETION
+// ============================================================
+
+async function scheduleDeletion(
+    downloadId,
+    seconds
+) {
+
+    const deleteAfter =
+        new Date(
+            Date.now() +
+            seconds * 1000
+        ).toISOString();
+
+
+    sendToCompanion({
+
+        event:
+            "schedule_deletion",
+
+        downloadId:
+
+            downloadId,
+
+        deleteAfter:
+
+            deleteAfter,
+
+        durationSeconds:
+
+            seconds
+    },
+    response => {
+
+        console.log(
+            "Deletion scheduled:",
+            response
+        );
+
+    });
+}
+
+
+
+function openDurationPicker(
+    downloadId,
+    notificationId
+) {
+
+    const url =
+        chrome.runtime.getURL(
+            "duration.html"
+        ) +
+        `?downloadId=${encodeURIComponent(
+            downloadId
+        )}` +
+        `&notificationId=${encodeURIComponent(
+            notificationId
+        )}`;
+
+
+    chrome.windows.create({
+
+        url,
+
+        type: "popup",
+
+        width: 320,
+
+        height: 260,
+
+        focused: true
+
+    });
+
+}
+
+
+
+chrome.runtime.onMessage.addListener(
+    (
+        message,
+        sender,
+        sendResponse
+    ) => {
+
+        if (
+            message.type !==
+            "custom_delete_duration"
+        ) {
+            return;
+        }
+
+
+        scheduleDeletion(
+            message.downloadId,
+            message.seconds
+        );
+
+
+        if (
+            message.notificationId
+        ) {
+
+            chrome.notifications.clear(
+                message.notificationId
+            );
+        }
+
+
+        sendResponse({
+            status: "success"
+        });
+
+    }
+);
+
+

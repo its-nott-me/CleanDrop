@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from .identity import get_file_identity
-from .recycle import move_to_recycle_bin
+from files.identity import get_file_identity
+from files.recycle import move_to_recycle_bin
 
 
 def safely_recycle(download):
@@ -10,16 +10,17 @@ def safely_recycle(download):
         download["current_path"]
     )
 
+
     expected_identity = (
         download["identity_key"]
     )
 
 
-    # --------------------------------------------------
-    # 1. Path must exist
-    # --------------------------------------------------
+    # ==================================================
+    # 1. FILE MUST EXIST
+    # ==================================================
 
-    if not path.exists():
+    if not path.is_file():
 
         return {
             "status": "NOT_FOUND",
@@ -27,15 +28,17 @@ def safely_recycle(download):
         }
 
 
-    # --------------------------------------------------
-    # 2. Get the identity of what currently exists
-    # --------------------------------------------------
+    # ==================================================
+    # 2. READ CURRENT FILE IDENTITY
+    # ==================================================
 
     try:
 
-        actual_identity = get_file_identity(path)
+        actual_identity = (
+            get_file_identity(path)
+        )
 
-    except OSError as error:
+    except Exception as error:
 
         return {
             "status": "FAILED",
@@ -49,14 +52,15 @@ def safely_recycle(download):
     )
 
 
-    # --------------------------------------------------
+    # ==================================================
     # 3. CRITICAL SAFETY CHECK
-    # --------------------------------------------------
+    # ==================================================
 
     if actual_key != expected_identity:
 
         return {
             "status": "IDENTITY_MISMATCH",
+
             "path": str(path),
 
             "expected_identity":
@@ -67,9 +71,9 @@ def safely_recycle(download):
         }
 
 
-    # --------------------------------------------------
-    # 4. Identity matches → recycle
-    # --------------------------------------------------
+    # ==================================================
+    # 4. RECYCLE THE FILE
+    # ==================================================
 
     try:
 
@@ -79,27 +83,32 @@ def safely_recycle(download):
 
         return {
             "status": "FAILED",
+
             "path": str(path),
+
             "reason": str(error)
         }
 
 
-    # --------------------------------------------------
-    # 5. Verify it disappeared from original location
-    # --------------------------------------------------
+    # ==================================================
+    # 5. VERIFY ORIGINAL PATH IS GONE
+    # ==================================================
 
     if path.exists():
 
         return {
             "status": "FAILED",
+
             "path": str(path),
+
             "reason":
-                "Recycle operation returned but "
-                "file still exists"
+                "File still exists after "
+                "Recycle Bin operation"
         }
 
 
     return {
         "status": "DELETED",
+
         "path": str(path)
     }

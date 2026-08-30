@@ -247,3 +247,33 @@ def update_delete_status(
         ))
 
         conn.commit()
+
+
+def schedule_deletion(
+    download_id,
+    delete_after
+):
+
+    with get_connection() as conn:
+
+        cursor = conn.execute("""
+            UPDATE downloads
+
+            SET
+                delete_after = ?,
+                delete_status = 'SCHEDULED',
+                updated_at = CURRENT_TIMESTAMP
+
+            WHERE
+                chrome_download_id = ?
+        """, (
+            delete_after,
+            download_id
+        ))
+
+
+        conn.commit()
+
+
+        return cursor.rowcount > 0
+

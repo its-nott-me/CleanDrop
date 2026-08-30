@@ -1,14 +1,28 @@
 import time
-from database import (get_expired_downloads, update_delete_status)
-from files.deletion import safely_recycle
-
-CHECK_INTERVAL = 5
-
 from pathlib import Path
 from datetime import datetime
 
-LOG_DIR = Path.home() / ".cleandrop"
-LOG_FILE = LOG_DIR / "scheduler.log"
+from database import (
+    get_expired_downloads,
+    update_delete_status
+)
+
+from files.deletion import safely_recycle
+
+
+CHECK_INTERVAL = 30
+
+
+LOG_DIR = (
+    Path.home()
+    / ".cleandrop"
+)
+
+LOG_FILE = (
+    LOG_DIR
+    / "scheduler.log"
+)
+
 
 def log(message):
 
@@ -17,7 +31,11 @@ def log(message):
         exist_ok=True
     )
 
-    timestamp = datetime.now().isoformat()
+
+    timestamp = (
+        datetime.now().isoformat()
+    )
+
 
     with LOG_FILE.open(
         "a",
@@ -28,9 +46,13 @@ def log(message):
             f"[{timestamp}] {message}\n"
         )
 
+
 def scheduler_loop():
 
-    log("Scheduler started")
+    log(
+        "Scheduler started"
+    )
+
 
     while True:
 
@@ -43,29 +65,47 @@ def scheduler_loop():
 
             for download in downloads:
 
+                download_id = (
+                    download["id"]
+                )
+
+
                 log(
                     "Processing expiry: "
-                    f"{download['identity_key']}"
+                    f"{download_id}"
                 )
 
 
-                result = safely_recycle(
-                    download
+                result = (
+                    safely_recycle(
+                        download
+                    )
                 )
 
 
-                status = result["status"]
+                status = (
+                    result["status"]
+                )
 
 
                 update_delete_status(
-                    download["id"],
+                    download_id,
                     status
                 )
 
 
                 log(
-                    f"Deletion result: {status}"
+                    "Deletion result: "
+                    f"{status}"
                 )
+
+
+                if result.get("reason"):
+
+                    log(
+                        "Reason: "
+                        + result["reason"]
+                    )
 
 
         except Exception as error:
