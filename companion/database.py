@@ -13,6 +13,13 @@ def get_connection():
 
     connection.row_factory = sqlite3.Row
 
+    # WAL avoids creating/deleting a journal file on every
+    # transaction (the default rollback-journal mode does this),
+    # which is expensive on Windows when antivirus real-time
+    # scanning intercepts each small file create/delete.
+    connection.execute("PRAGMA journal_mode=WAL")
+    connection.execute("PRAGMA synchronous=NORMAL")
+
     return connection
 
 
