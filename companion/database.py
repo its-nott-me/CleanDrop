@@ -113,6 +113,7 @@ def save_download(download, identity):
                 ?, ?,
                 ?,
                 ?,
+                ?,
                 ?, ?
             )
         """, (
