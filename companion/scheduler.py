@@ -4,13 +4,16 @@ from datetime import datetime
 
 from database import (
     get_expired_downloads,
-    update_delete_status
+    update_delete_status,
+    get_pending_ai_downloads
 )
 
 from files.deletion import safely_recycle
+from ai.worker import process_ai_download
 
 
 CHECK_INTERVAL = 30
+AI_CHECK_INTERVAL = 5
 
 
 LOG_DIR = (
@@ -118,4 +121,40 @@ def scheduler_loop():
 
         time.sleep(
             CHECK_INTERVAL
+        )
+
+
+def ai_loop():
+
+    log(
+        "AI loop started"
+    )
+
+
+    while True:
+
+        try:
+
+            downloads = (
+                get_pending_ai_downloads()
+            )
+
+
+            for download in downloads:
+
+                process_ai_download(
+                    download
+                )
+
+
+        except Exception as error:
+
+            log(
+                "AI loop error: "
+                + str(error)
+            )
+
+
+        time.sleep(
+            AI_CHECK_INTERVAL
         )

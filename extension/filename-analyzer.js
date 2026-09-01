@@ -154,12 +154,67 @@ function isLowInformationFilename(filename) {
 }
 
 
+function looksLikeRandomToken(token) {
+
+    if (token.length < 8) {
+        return false;
+    }
+
+    const hasUpper = /[A-Z]/.test(token);
+    const hasLower = /[a-z]/.test(token);
+    const hasDigit = /[0-9]/.test(token);
+
+    // Real filenames rarely mix case AND digits within
+    // a single token (e.g. "j4c8VWiPkc"); that pattern
+    // is characteristic of generated hashes/ids.
+    if (
+        !(hasUpper && hasLower && hasDigit)
+    ) {
+        return false;
+    }
+
+    const letters =
+        token.replace(/[^a-zA-Z]/g, "");
+
+    if (letters.length < 6) {
+        return false;
+    }
+
+    const vowels =
+        (letters.match(/[aeiouAEIOU]/g) || [])
+            .length;
+
+    const vowelRatio =
+        vowels / letters.length;
+
+    // Real words/names reliably contain vowels;
+    // machine-generated tokens usually don't.
+    return vowelRatio < 0.2;
+}
+
+
+function hasRandomToken(base) {
+
+    const tokens =
+        base
+            .split(/[._\-\s]+/)
+            .filter(Boolean);
+
+    return tokens.some(
+        looksLikeRandomToken
+    );
+}
+
+
 function isGenericFilename(filename) {
 
-    const base =
+    const rawBase =
         cleanText(
             getBaseName(filename)
-        ).toLowerCase();
+        );
+
+    const base =
+        rawBase.toLowerCase();
 
 
     if (
@@ -201,6 +256,23 @@ function isGenericFilename(filename) {
     if (
         /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
             .test(base)
+    ) {
+        return true;
+    }
+
+
+    // Known CDN/optimizer rewrite artifacts
+    // (e.g. mod_pagespeed) are never meaningful.
+    if (
+        /\.pagespeed\.[a-z]{2}\./
+            .test(base)
+    ) {
+        return true;
+    }
+
+
+    if (
+        hasRandomToken(rawBase)
     ) {
         return true;
     }
@@ -392,15 +464,161 @@ function analyzeFilename(
 
 
     // --------------------------------------------------------
-    // 3. No deterministic answer yet.
-    //
-    // Later:
-    // metadata → page title → SLM
+    // 3. Try page context
+    // --------------------------------------------------------
+
+    const contextName =
+        getContextName(
+            download.pageContext
+        );
+
+
+    if (
+        contextName &&
+        isUsableContextName(
+            contextName
+        )
+    ) {
+
+        const clean =
+            sanitizeFilename(
+                contextName
+            );
+
+
+        const finalName =
+            preserveExtension(
+                clean,
+                original
+            );
+
+
+        return {
+
+            filename:
+                finalName,
+
+            changed:
+                true,
+
+            reason:
+                "page_context"
+        };
+    }
+
+
+    // --------------------------------------------------------
+    // 4. Nothing useful
     // --------------------------------------------------------
 
     return {
-        filename: original,
-        changed: false,
-        reason: "no_suggestion"
+
+        filename:
+            original,
+
+        changed:
+            false,
+
+        reason:
+            "no_suggestion"
     };
+}
+
+
+function getContextName(
+    pageContext
+) {
+
+    if (!pageContext) {
+        return null;
+    }
+
+
+    const candidates = [
+
+        pageContext.ogTitle,
+
+        pageContext.pageTitle,
+
+        pageContext.description,
+
+        pageContext.ogDescription
+
+    ];
+
+
+    for (
+        const candidate
+        of candidates
+    ) {
+
+        if (
+            !candidate ||
+            candidate.length < 3
+        ) {
+            continue;
+        }
+
+
+        return candidate.trim();
+    }
+
+
+    return null;
+}
+
+
+function isUsableContextName(
+    text
+) {
+
+    if (!text) {
+        return false;
+    }
+
+
+    const cleaned =
+        text.trim();
+
+
+    if (
+        cleaned.length < 3 ||
+        cleaned.length > 150
+    ) {
+        return false;
+    }
+
+
+    // Don't use generic page titles.
+    const genericTitles = new Set([
+
+        "home",
+
+        "homepage",
+
+        "untitled",
+
+        "new tab",
+
+        "google",
+
+        "youtube",
+
+        "facebook",
+
+        "instagram"
+
+    ]);
+
+
+    if (
+        genericTitles.has(
+            cleaned.toLowerCase()
+        )
+    ) {
+        return false;
+    }
+
+
+    return true;
 }

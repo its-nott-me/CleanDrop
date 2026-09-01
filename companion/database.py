@@ -39,6 +39,9 @@ def initialize_database():
                 url TEXT,
                 referrer TEXT,
 
+                page_title TEXT,
+                page_description TEXT,
+
                 mime_type TEXT,
                 file_size INTEGER,
 
@@ -48,6 +51,8 @@ def initialize_database():
                 incognito INTEGER NOT NULL DEFAULT 0,
 
                 status TEXT NOT NULL DEFAULT 'COMPLETED',
+
+                ai_status TEXT NOT NULL DEFAULT 'NONE',
 
                 delete_after TEXT,
                 delete_status TEXT NOT NULL DEFAULT 'NONE',
@@ -81,6 +86,9 @@ def save_download(download, identity):
                 url,
                 referrer,
 
+                page_title,
+                page_description,
+
                 mime_type,
                 file_size,
 
@@ -90,6 +98,8 @@ def save_download(download, identity):
                 incognito,
 
                 status,
+
+                ai_status,
 
                 delete_after,
                 delete_status
@@ -101,6 +111,8 @@ def save_download(download, identity):
                 ?, ?,
                 ?, ?,
                 ?, ?,
+                ?,
+                ?,
                 ?, ?
             )
         """, (
@@ -117,6 +129,9 @@ def save_download(download, identity):
             download.get("url"),
             download.get("referrer"),
 
+            download.get("page_title"),
+            download.get("page_description"),
+
             download.get("mime"),
             download.get("fileSize"),
 
@@ -126,6 +141,12 @@ def save_download(download, identity):
             int(download.get("incognito", False)),
 
             "COMPLETED",
+
+            (
+                "PENDING"
+                if download.get("ai_enabled")
+                else "NONE"
+            ),
 
             download.get("deleteAfter"),
 
@@ -249,6 +270,75 @@ def update_delete_status(
         conn.commit()
 
 
+def get_recent_downloads(limit=20):
+
+    with get_connection() as conn:
+
+        rows = conn.execute("""
+            SELECT *
+            FROM downloads
+            ORDER BY created_at DESC
+            LIMIT ?
+        """, (limit,)).fetchall()
+
+        return [
+            dict(row)
+            for row in rows
+        ]
+
+
+def get_pending_ai_downloads():
+
+    with get_connection() as conn:
+
+        rows = conn.execute("""
+            SELECT *
+            FROM downloads
+            WHERE ai_status = 'PENDING'
+        """).fetchall()
+
+        return [
+            dict(row)
+            for row in rows
+        ]
+
+
+def update_ai_status(chrome_download_id, status):
+
+    with get_connection() as conn:
+
+        conn.execute("""
+            UPDATE downloads
+            SET
+                ai_status = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE chrome_download_id = ?
+        """, (
+            status,
+            chrome_download_id
+        ))
+
+        conn.commit()
+
+
+def update_current_path(chrome_download_id, new_path):
+
+    with get_connection() as conn:
+
+        conn.execute("""
+            UPDATE downloads
+            SET
+                current_path = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE chrome_download_id = ?
+        """, (
+            new_path,
+            chrome_download_id
+        ))
+
+        conn.commit()
+
+
 def schedule_deletion(
     download_id,
     delete_after
@@ -276,4 +366,3 @@ def schedule_deletion(
 
 
         return cursor.rowcount > 0
-
