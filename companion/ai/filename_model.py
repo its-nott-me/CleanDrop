@@ -1,8 +1,6 @@
 import requests
 from pathlib import Path
-
-
-LLAMA_URL = "http://127.0.0.1:8080/v1/chat/completions"
+from config import get_llm_url
 
 
 SYSTEM_PROMPT = """
@@ -57,7 +55,7 @@ def suggest_filename(context):
 
     response = requests.post(
 
-        LLAMA_URL,
+        get_llm_url(),
 
         json=payload,
 

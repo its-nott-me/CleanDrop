@@ -74,10 +74,12 @@ def initialize_database():
 
 
 def save_download(download, identity):
+    path = download["filename"]
+
+    ai_enabled = download.get("ai_enabled", False)
+    delete_after = download.get("deleteAfter")
+
     with get_connection() as conn:
-
-        path = download["filename"]
-
         conn.execute("""
             INSERT OR IGNORE INTO downloads (
                 chrome_download_id,
@@ -121,7 +123,8 @@ def save_download(download, identity):
                 ?,
                 ?,
                 ?,
-                ?, ?
+                ?,
+                ?
             )
         """, (
             download["id"],
@@ -150,82 +153,15 @@ def save_download(download, identity):
 
             "COMPLETED",
 
-            (
-                "PENDING"
-                if download.get("ai_enabled")
-                else "NONE"
-            ),
+            "PENDING" if ai_enabled else "NONE",
 
-            download.get("deleteAfter"),
+            delete_after,
 
-            (
-                "SCHEDULED"
-                if download.get("deleteAfter")
-                else "NONE"
-            )
+            "SCHEDULED" if delete_after else "NONE"
         ))
 
         conn.commit()
 
-        path = download["filename"]
-
-        conn.execute("""
-            INSERT OR IGNORE INTO downloads (
-
-                chrome_download_id,
-
-                original_path,
-                current_path,
-
-                original_filename,
-
-                volume_serial,
-                file_id,
-                identity_key,
-
-                url,
-                referrer,
-
-                mime_type,
-                file_size,
-
-                start_time,
-                end_time,
-
-                incognito,
-
-                status
-
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-
-            download["id"],
-
-            path,
-            path,
-
-            Path(path).name,
-
-            identity["volume_serial"],
-            identity["file_id"],
-            identity["identity_key"],
-
-            download.get("url"),
-            download.get("referrer"),
-
-            download.get("mime"),
-            download.get("fileSize"),
-
-            download.get("startTime"),
-            download.get("endTime"),
-
-            int(download.get("incognito", False)),
-
-            "COMPLETED"
-        ))
-
-        conn.commit()
 
 
 def get_expired_downloads():
