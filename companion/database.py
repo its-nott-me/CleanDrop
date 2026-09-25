@@ -59,8 +59,6 @@ def initialize_database():
 
                 status TEXT NOT NULL DEFAULT 'COMPLETED',
 
-                ai_status TEXT NOT NULL DEFAULT 'NONE',
-
                 delete_after TEXT,
                 delete_status TEXT NOT NULL DEFAULT 'NONE',
                 deleted_at TEXT,
@@ -73,11 +71,15 @@ def initialize_database():
         conn.commit()
 
 
-def save_download(download, identity):
-    path = download["filename"]
+def create_scheduled_download(download, identity, delete_after):
+    """
+    Creates a tracked download row. Only ever called at the moment
+    a deletion is scheduled — a download the user never schedules
+    is never written to the database at all, so SQLite doesn't
+    accumulate rows for files nobody asked to track.
+    """
 
-    ai_enabled = download.get("ai_enabled", False)
-    delete_after = download.get("deleteAfter")
+    path = download["filename"]
 
     with get_connection() as conn:
         conn.execute("""
@@ -108,8 +110,6 @@ def save_download(download, identity):
 
                 status,
 
-                ai_status,
-
                 delete_after,
                 delete_status
             )
@@ -123,8 +123,7 @@ def save_download(download, identity):
                 ?,
                 ?,
                 ?,
-                ?,
-                ?
+                'SCHEDULED'
             )
         """, (
             download["id"],
@@ -153,15 +152,10 @@ def save_download(download, identity):
 
             "COMPLETED",
 
-            "PENDING" if ai_enabled else "NONE",
-
-            delete_after,
-
-            "SCHEDULED" if delete_after else "NONE"
+            delete_after
         ))
 
         conn.commit()
-
 
 
 def get_expired_downloads():
@@ -231,14 +225,45 @@ def get_recent_downloads(limit=20):
         ]
 
 
-def get_pending_ai_downloads():
+def cancel_scheduled_download(download_id):
+    with get_connection() as conn:
+
+        cursor = conn.execute("""
+            UPDATE downloads
+            SET
+                delete_status = 'CANCELLED',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE
+                id = ?
+                AND delete_status = 'SCHEDULED'
+        """, (
+            download_id,
+        ))
+
+        conn.commit()
+
+        return cursor.rowcount > 0
+
+
+def get_scheduled_downloads():
 
     with get_connection() as conn:
 
         rows = conn.execute("""
-            SELECT *
+            SELECT
+                id,
+                chrome_download_id,
+                current_path,
+                original_filename,
+                file_size,
+                url,
+                delete_after,
+                delete_status,
+                created_at
             FROM downloads
-            WHERE ai_status = 'PENDING'
+            WHERE
+                delete_status = 'SCHEDULED'
+            ORDER BY delete_after ASC
         """).fetchall()
 
         return [
@@ -247,66 +272,24 @@ def get_pending_ai_downloads():
         ]
 
 
-def update_ai_status(chrome_download_id, status):
-
-    with get_connection() as conn:
-
-        conn.execute("""
-            UPDATE downloads
-            SET
-                ai_status = ?,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE chrome_download_id = ?
-        """, (
-            status,
-            chrome_download_id
-        ))
-
-        conn.commit()
-
-
-def update_current_path(chrome_download_id, new_path):
-
-    with get_connection() as conn:
-
-        conn.execute("""
-            UPDATE downloads
-            SET
-                current_path = ?,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE chrome_download_id = ?
-        """, (
-            new_path,
-            chrome_download_id
-        ))
-
-        conn.commit()
-
-
-def schedule_deletion(
-    download_id,
-    delete_after
-):
+def claim_download_for_deletion(download_id):
 
     with get_connection() as conn:
 
         cursor = conn.execute("""
             UPDATE downloads
-
             SET
-                delete_after = ?,
-                delete_status = 'SCHEDULED',
+                delete_status = 'DELETING',
                 updated_at = CURRENT_TIMESTAMP
-
             WHERE
-                chrome_download_id = ?
+                id = ?
+                AND delete_status = 'SCHEDULED'
+                AND delete_after IS NOT NULL
+                AND datetime(delete_after) <= datetime('now')
         """, (
-            delete_after,
-            download_id
+            download_id,
         ))
 
-
         conn.commit()
-
 
         return cursor.rowcount > 0

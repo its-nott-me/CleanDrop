@@ -21,6 +21,7 @@ import subprocess
 import sys
 import time
 import tempfile
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -70,16 +71,14 @@ def make_download(i):
         "startTime": "2026-08-28T00:00:00Z",
         "endTime": "2026-08-28T00:00:01Z",
         "incognito": False,
-        "ai_enabled": (i % 2 == 0),
         "page_title": "Example Page",
         "page_description": "An example page",
-        "deleteAfter": None,
     }
 
 
 def send_native_message(i):
     msg = json.dumps({
-        "event": "download_completed",
+        "event": "schedule_deletion",
         "id": 9_500_000 + i,
         "filename": f"{tempfile.gettempdir()}/cleandrop_native_{i}.jpg",
         "url": f"https://example.com/n{i}.jpg",
@@ -89,7 +88,7 @@ def send_native_message(i):
         "startTime": "2026-08-28T00:00:00Z",
         "endTime": "2026-08-28T00:00:01Z",
         "incognito": False,
-        "ai_enabled": False,
+        "deleteAfter": "2099-01-01T00:00:00+00:00",
     }).encode("utf-8")
 
     subprocess.run(
@@ -111,9 +110,11 @@ def main():
 
     results = {}
 
-    results["save_download_ms"] = bench(
-        "save_download() [SQLite insert]",
-        lambda i: database.save_download(make_download(i), identity),
+    results["create_scheduled_download_ms"] = bench(
+        "create_scheduled_download() [SQLite insert]",
+        lambda i: database.create_scheduled_download(
+            make_download(i), identity, "2099-01-01T00:00:00+00:00"
+        ),
         500,
     )
 
@@ -123,14 +124,20 @@ def main():
         200,
     )
 
-    results["schedule_deletion_ms"] = bench(
-        "schedule_deletion() [SQLite update]",
-        lambda i: database.schedule_deletion(9_000_000 + i, "2099-01-01T00:00:00+00:00"),
+    results["update_delete_status_ms"] = bench(
+        "update_delete_status() [SQLite update]",
+        lambda i: database.update_delete_status(i + 1, "DELETED"),
         500,
     )
 
+    # host.py now needs a real file on disk for schedule_deletion
+    # to succeed (it checks existence before creating the row).
+    native_test_dir = Path(tempfile.gettempdir())
+    for i in range(50):
+        (native_test_dir / f"cleandrop_native_{i}.jpg").touch()
+
     results["native_messaging_roundtrip_ms"] = bench(
-        "Full native-messaging round trip [process spawn + protocol + save]",
+        "Full native-messaging round trip [process spawn + protocol + schedule]",
         send_native_message,
         50,
     )

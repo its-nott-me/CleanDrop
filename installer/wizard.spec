@@ -1,19 +1,21 @@
-# -*- mode: python ; coding: utf-8 -*-
-
+# Build with: pyinstaller wizard.spec
+# Run prepare_resources.py first so installer/resources/ exists.
 
 a = Analysis(
-    ['scheduler_main.py'],
+    ['wizard.py'],
     pathex=[],
     binaries=[],
-    datas=[],
-    hiddenimports=['config', 'llm_manager'],
+    datas=[
+        ('resources', 'resources'),
+    ],
+    hiddenimports=[],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
     noarchive=False,
-    optimize=0,
 )
+
 pyz = PYZ(a.pure)
 
 exe = EXE(
@@ -22,7 +24,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='cleandrop-scheduler',
+    name='CleanDropSetup',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

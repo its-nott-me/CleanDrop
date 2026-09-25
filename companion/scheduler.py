@@ -5,15 +5,15 @@ from datetime import datetime
 from database import (
     get_expired_downloads,
     update_delete_status,
-    get_pending_ai_downloads
+    claim_download_for_deletion
 )
 
 from files.deletion import safely_recycle
-from ai.worker import process_ai_download
+from llm_manager import ensure_llm_server_running
 
 
 CHECK_INTERVAL = 30
-AI_CHECK_INTERVAL = 5
+LLM_CHECK_INTERVAL = 15
 
 
 LOG_DIR = (
@@ -73,6 +73,20 @@ def scheduler_loop():
                 )
 
 
+                # Atomically claim the deletion.
+                # If the user cancelled it after we fetched
+                # the expired rows, this returns False and
+                # we must NOT delete the file.
+                if not claim_download_for_deletion(
+                    download_id
+                ):
+                    log(
+                        f"Skipping {download_id}: "
+                        "no longer scheduled"
+                    )
+                    continue
+
+
                 log(
                     "Processing expiry: "
                     f"{download_id}"
@@ -124,10 +138,10 @@ def scheduler_loop():
         )
 
 
-def ai_loop():
+def llm_watchdog_loop():
 
     log(
-        "AI loop started"
+        "LLM watchdog started"
     )
 
 
@@ -135,26 +149,18 @@ def ai_loop():
 
         try:
 
-            downloads = (
-                get_pending_ai_downloads()
+            ensure_llm_server_running(
+                log=log
             )
-
-
-            for download in downloads:
-
-                process_ai_download(
-                    download
-                )
-
 
         except Exception as error:
 
             log(
-                "AI loop error: "
+                "LLM watchdog error: "
                 + str(error)
             )
 
 
         time.sleep(
-            AI_CHECK_INTERVAL
+            LLM_CHECK_INTERVAL
         )

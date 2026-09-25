@@ -1,8 +1,10 @@
 import requests
 import json
 
+from config import get_llm_url
 
-URL = "http://127.0.0.1:8080/v1/chat/completions"
+
+URL = get_llm_url()
 
 
 payload = {

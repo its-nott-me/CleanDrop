@@ -2,7 +2,7 @@ import sys
 import threading
 
 from database import initialize_database
-from scheduler import scheduler_loop, ai_loop
+from scheduler import scheduler_loop, llm_watchdog_loop
 
 
 def main():
@@ -13,12 +13,12 @@ def main():
 
     initialize_database()
 
-    ai_thread = threading.Thread(
-        target=ai_loop,
+    watchdog_thread = threading.Thread(
+        target=llm_watchdog_loop,
         daemon=True
     )
 
-    ai_thread.start()
+    watchdog_thread.start()
 
     scheduler_loop()
 

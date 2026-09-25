@@ -1,17 +1,27 @@
 import sys
 import json
 import struct
+import time
+
+
+# Bump this string whenever you make a meaningful change to this
+# file and rebuild. It's included in every response, so a stale
+# exe is immediately visible in the console log (e.g. missing a
+# field you just added) instead of something you have to infer.
+HOST_BUILD = "2026-09-25-v1"
 
 from pathlib import Path
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 
 from database import (
     initialize_database,
-    save_download,
-    schedule_deletion
+    create_scheduled_download,
+    cancel_scheduled_download,
+    get_scheduled_downloads
 )
 
 from files.identity import get_file_identity
+from ai.filename_model import suggest_filename
 
 
 def read_message():
@@ -61,91 +71,84 @@ def send_message(message):
 
 
 # ============================================================
-# DOWNLOAD COMPLETED
+# SUGGEST FILENAME (AI fallback, called before the file exists)
 # ============================================================
 
-def handle_download_completed(message):
+def handle_suggest_filename(message):
+    """
+    Called from onDeterminingFilename, before the file is written
+    to disk. Blocks on the LLM call and only responds once it's
+    done — this is safe here (unlike the old post-download AI
+    loop) because we're delaying a response, not trying to keep
+    working after one has already been sent.
+    """
 
-    path = message.get("filename")
+    handler_start = time.perf_counter()
 
-    if not path:
+    context = {
+        "filename": message.get("filename", ""),
+        "mime": message.get("mime"),
+        "url": message.get("url"),
+        "referrer": message.get("referrer"),
+        "page_title": message.get("page_title", ""),
+        "page_description": message.get("page_description", "")
+    }
 
-        return {
-            "status": "error",
-            "message": "Download has no file path"
-        }
+    try:
 
+        llm_start = time.perf_counter()
 
-    if not Path(path).exists():
+        suggested = suggest_filename(context)
 
-        return {
-            "status": "error",
-            "message": "Downloaded file does not exist"
-        }
+        llm_elapsed_ms = (
+            time.perf_counter() - llm_start
+        ) * 1000
 
+        handler_elapsed_ms = (
+            time.perf_counter() - handler_start
+        ) * 1000
 
-    identity = get_file_identity(path)
-
-
-    delete_after = None
-
-
-    # This is retained for compatibility with the
-    # previous temporary-download workflow.
-    #
-    # Our new notification workflow will normally
-    # schedule deletion later using schedule_deletion.
-
-    if message.get("temporary"):
-
-        expiry_seconds = message.get(
-            "expirySeconds"
+        print(
+            "[CleanDrop] AI suggested filename: "
+            f"{suggested} (llm_call={llm_elapsed_ms:.0f}ms, "
+            f"handler_total={handler_elapsed_ms:.0f}ms)",
+            file=sys.stderr
         )
 
-        if not expiry_seconds:
+        return {
+            "status": "success",
+            "suggested_filename": suggested,
+            "host_build": HOST_BUILD,
+            "timing": {
+                "llm_call_ms": round(llm_elapsed_ms, 1),
+                "handler_total_ms": round(handler_elapsed_ms, 1)
+            }
+        }
 
-            raise ValueError(
-                "Temporary download has no expiry"
-            )
+    except Exception as error:
 
+        handler_elapsed_ms = (
+            time.perf_counter() - handler_start
+        ) * 1000
 
-        delete_after = (
-            datetime.now(timezone.utc)
-            +
-            timedelta(
-                seconds=expiry_seconds
-            )
-        ).isoformat()
+        # Local LLM down, slow past its timeout, malformed
+        # response, etc. — fail soft. The download must never
+        # hang waiting on this; falling back to the original
+        # filename is always an acceptable outcome.
+        print(
+            f"[CleanDrop] AI suggestion failed after "
+            f"{handler_elapsed_ms:.0f}ms: {error}",
+            file=sys.stderr
+        )
 
-
-    message["deleteAfter"] = delete_after
-
-
-    save_download(
-        message,
-        identity
-    )
-
-
-    print(
-        f"[CleanDrop] Saved: {path}",
-        file=sys.stderr
-    )
-
-    print(
-        "[CleanDrop] File ID: "
-        f"{identity['identity_key']}",
-        file=sys.stderr
-    )
-
-
-    return {
-        "status": "success",
-        "message": "Download saved",
-        "download_id": message.get("id"),
-        "identity":
-            identity["identity_key"]
-    }
+        return {
+            "status": "error",
+            "suggested_filename": None,
+            "host_build": HOST_BUILD,
+            "timing": {
+                "handler_total_ms": round(handler_elapsed_ms, 1)
+            }
+        }
 
 
 # ============================================================
@@ -154,30 +157,31 @@ def handle_download_completed(message):
 
 def handle_schedule_deletion(message):
 
-    download_id = message.get(
-        "downloadId"
-    )
+    path = message.get("filename")
 
-    delete_after = message.get(
-        "deleteAfter"
-    )
-
-
-    if download_id is None:
+    if not path:
 
         return {
             "status": "error",
-            "message":
-                "schedule_deletion requires downloadId"
+            "message": "schedule_deletion requires filename"
         }
 
+
+    if not Path(path).exists():
+
+        return {
+            "status": "error",
+            "message": "File does not exist"
+        }
+
+
+    delete_after = message.get("deleteAfter")
 
     if not delete_after:
 
         return {
             "status": "error",
-            "message":
-                "schedule_deletion requires deleteAfter"
+            "message": "schedule_deletion requires deleteAfter"
         }
 
 
@@ -200,25 +204,24 @@ def handle_schedule_deletion(message):
         }
 
 
-    scheduled = schedule_deletion(
-        download_id,
+    identity = get_file_identity(path)
+
+    create_scheduled_download(
+        message,
+        identity,
         delete_after
     )
 
 
-    if not scheduled:
-
-        return {
-            "status": "error",
-            "message":
-                f"Download {download_id} not found"
-        }
-
-
     print(
         "[CleanDrop] Deletion scheduled: "
-        f"download={download_id}, "
-        f"delete_after={delete_after}",
+        f"{path}, delete_after={delete_after}",
+        file=sys.stderr
+    )
+
+    print(
+        "[CleanDrop] File ID: "
+        f"{identity['identity_key']}",
         file=sys.stderr
     )
 
@@ -226,8 +229,54 @@ def handle_schedule_deletion(message):
     return {
         "status": "success",
         "message": "Deletion scheduled",
-        "download_id": download_id,
+        "download_id": message.get("id"),
         "delete_after": delete_after
+    }
+
+
+def handle_cancel_deletion(message):
+
+    download_id = message.get("id")
+
+    if download_id is None:
+
+        return {
+            "status": "error",
+            "message": "cancel_deletion requires id"
+        }
+
+    cancelled = cancel_scheduled_download(
+        download_id
+    )
+
+    if not cancelled:
+
+        return {
+            "status": "error",
+            "message":
+                "Scheduled deletion not found or already processed"
+        }
+
+    print(
+        "[CleanDrop] Deletion cancelled: "
+        f"{download_id}",
+        file=sys.stderr
+    )
+
+    return {
+        "status": "success",
+        "message": "Deletion cancelled",
+        "id": download_id
+    }
+
+
+def handle_list_scheduled_deletions():
+
+    downloads = get_scheduled_downloads()
+
+    return {
+        "status": "success",
+        "downloads": downloads
     }
 
 
@@ -242,9 +291,9 @@ def handle_message(message):
     )
 
 
-    if event == "download_completed":
+    if event == "suggest_filename":
 
-        return handle_download_completed(
+        return handle_suggest_filename(
             message
         )
 
@@ -254,6 +303,18 @@ def handle_message(message):
         return handle_schedule_deletion(
             message
         )
+
+
+    if event == "cancel_deletion":
+
+        return handle_cancel_deletion(
+            message
+        )
+
+
+    if event == "list_scheduled_deletions":
+        
+        return handle_list_scheduled_deletions()
 
 
     return {

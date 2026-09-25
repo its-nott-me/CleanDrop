@@ -13,6 +13,8 @@ DEFAULT_LLM_PORT = 58080
 
 _DEFAULTS = {
     "llm_port": DEFAULT_LLM_PORT,
+    "llm_server_exe": None,
+    "llm_model_path": None,
 }
 
 
