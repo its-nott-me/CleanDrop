@@ -1,30 +1,19 @@
-const DEFAULT_DELETE_SECONDS =
-    7 * 24 * 60 * 60;
+const DEFAULT_DELETE_SECONDS = 7 * 24 * 60 * 60;
 
 
 async function loadSettings() {
 
-    const settings =
-        await chrome.storage.local.get({
-            defaultDeleteSeconds:
-                DEFAULT_DELETE_SECONDS
-        });
+    const settings = await chrome.storage.local.get({
+        defaultDeleteSeconds: DEFAULT_DELETE_SECONDS
+    });
 
-    document.getElementById(
-        "defaultDelete"
-    ).value =
-        String(settings.defaultDeleteSeconds);
+    document.getElementById("defaultDelete").value = String(settings.defaultDeleteSeconds);
 }
 
 
 async function saveDefaultDeleteTime() {
 
-    const seconds =
-        Number(
-            document.getElementById(
-                "defaultDelete"
-            ).value
-        );
+    const seconds = Number(document.getElementById("defaultDelete").value);
 
     await chrome.storage.local.set({
         defaultDeleteSeconds: seconds
@@ -32,9 +21,7 @@ async function saveDefaultDeleteTime() {
 }
 
 
-function sendToCompanion(
-    message
-) {
+function sendToCompanion(message) {
 
     return new Promise((resolve) => {
 
@@ -89,14 +76,12 @@ async function loadScheduledDownloads() {
     }
 
 
-    const downloads =
-        response.downloads || [];
+    const downloads = response.downloads || [];
 
 
     if (downloads.length === 0) {
 
-        container.textContent =
-            "No scheduled deletions.";
+        container.textContent = "No scheduled deletions.";
 
         return;
     }
@@ -107,43 +92,30 @@ async function loadScheduledDownloads() {
 
     for (const download of downloads) {
 
-        const item =
-            document.createElement("div");
+        const item = document.createElement("div");
 
-        item.className =
-            "scheduled-item";
+        item.className = "scheduled-item";
 
 
-        const filename =
-            document.createElement("div");
+        const filename = document.createElement("div");
 
-        filename.className =
-            "filename";
+        filename.className = "filename";
 
-        filename.textContent =
-            download.original_filename;
+        filename.textContent = download.original_filename;
 
 
-        const deleteTime =
-            document.createElement("div");
+        const deleteTime = document.createElement("div");
 
-        deleteTime.className =
-            "delete-time";
+        deleteTime.className = "delete-time";
 
-        deleteTime.textContent =
-            `Deletes on ${formatDeleteTime(
-                download.delete_after
-            )}`;
+        deleteTime.textContent = `Deletes on ${formatDeleteTime(download.delete_after)}`;
 
 
-        const cancel =
-            document.createElement("button");
+        const cancel = document.createElement("button");
 
-        cancel.className =
-            "cancel-button";
+        cancel.className = "cancel-button";
 
-        cancel.textContent =
-            "Cancel";
+        cancel.textContent = "Cancel";
 
 
         cancel.addEventListener(
@@ -191,12 +163,9 @@ async function loadScheduledDownloads() {
 }
 
 
-function formatDeleteTime(
-    timestamp
-) {
+function formatDeleteTime(timestamp) {
 
-    const date =
-        new Date(timestamp);
+    const date = new Date(timestamp);
 
     return date.toLocaleString();
 }

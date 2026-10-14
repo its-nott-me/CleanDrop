@@ -1,7 +1,3 @@
-// ============================================================
-// CleanDrop Filename Analyzer
-// ============================================================
-
 const GENERIC_FILENAMES = new Set([
     "download",
     "downloaded",
@@ -205,45 +201,34 @@ function isHashToken(token) {
 
 function hasHashToken(base) {
 
-    const tokens =
-        base
+    const tokens = base
             .split(/[._\-\s]+/)
             .filter(Boolean);
 
-    return tokens.some(
-        isHashToken
-    );
+    return tokens.some(isHashToken);
 }
 
 
 function hasRandomToken(base) {
 
-    const tokens =
-        base
+    const tokens = base
             .split(/[._\-\s]+/)
             .filter(Boolean);
 
-    return tokens.some(
-        looksLikeRandomToken
-    );
+    return tokens.some(looksLikeRandomToken);
 }
 
 
 function isGenericFilename(filename) {
 
-    const originalBase =
-        getBaseName(filename);
+    const originalBase = getBaseName(filename);
 
-    const rawBase =
-        cleanText(originalBase);
+    const rawBase = cleanText(originalBase);
 
-    const base =
-        rawBase.toLowerCase();
+    const base = rawBase.toLowerCase();
 
 
-    if (
-        GENERIC_FILENAMES.has(base)
-    ) {
+    if (GENERIC_FILENAMES.has(base)) {
         return true;
     }
 
@@ -270,33 +255,24 @@ function isGenericFilename(filename) {
     // Per-token hash detection: catches both a filename that
     // IS just a hash, and one where a hash has extra metadata
     // appended by a CDN (e.g. "<sha1>-1080x721.jpg").
-    if (
-        hasHashToken(rawBase)
-    ) {
+    if (hasHashToken(rawBase)) {
         return true;
     }
 
 
     // Known CDN/optimizer rewrite artifacts
     // (e.g. mod_pagespeed) are never meaningful.
-    if (
-        /\.pagespeed\.[a-z]{2}\./
-            .test(base)
-    ) {
+    if (/\.pagespeed\.[a-z]{2}\./.test(base)) {
         return true;
     }
 
 
-    if (
-        hasRandomToken(rawBase)
-    ) {
+    if (hasRandomToken(rawBase)) {
         return true;
     }
 
 
-    if (
-        isLowInformationFilename(base)
-    ) {
+    if (isLowInformationFilename(base)) {
         return true;
     }
 
@@ -305,9 +281,7 @@ function isGenericFilename(filename) {
 }
 
 
-function filenameFromUrl(
-    url
-) {
+function filenameFromUrl(url) {
 
     if (!url) {
         return null;
@@ -316,12 +290,10 @@ function filenameFromUrl(
 
     try {
 
-        const parsed =
-            new URL(url);
+        const parsed = new URL(url);
 
 
-        const pathname =
-            parsed.pathname;
+        const pathname = parsed.pathname;
 
 
         const lastSegment =
@@ -336,18 +308,12 @@ function filenameFromUrl(
         }
 
 
-        const decoded =
-            decodeURIComponent(
-                lastSegment
-            );
+        const decoded = decodeURIComponent(lastSegment);
 
 
         // Avoid treating query-like or meaningless
         // URL segments as filenames.
-        if (
-            decoded.length < 2 ||
-            decoded.length > 150
-        ) {
+        if (decoded.length < 2 || decoded.length > 150) {
             return null;
         }
 
@@ -361,9 +327,7 @@ function filenameFromUrl(
 }
 
 
-function sanitizeFilename(
-    filename
-) {
+function sanitizeFilename(filename) {
 
     return filename
 
@@ -387,13 +351,9 @@ function sanitizeFilename(
 }
 
 
-function preserveExtension(
-    suggested,
-    original
-) {
+function preserveExtension(suggested, original) {
 
-    const originalExtension =
-        getExtension(original);
+    const originalExtension = getExtension(original);
 
 
     if (!originalExtension) {
@@ -401,13 +361,10 @@ function preserveExtension(
     }
 
 
-    const suggestedExtension =
-        getExtension(suggested);
+    const suggestedExtension = getExtension(suggested);
 
 
-    if (
-        suggestedExtension
-    ) {
+    if (suggestedExtension) {
         return suggested;
     }
 
@@ -416,14 +373,9 @@ function preserveExtension(
 }
 
 
-function analyzeFilename(
-    download
-) {
+function analyzeFilename(download) {
 
-    const original =
-        download.filename
-            .split("\\")
-            .pop();
+    const original = download.filename.split("\\").pop();
 
 
     // --------------------------------------------------------
@@ -431,9 +383,7 @@ function analyzeFilename(
     //    leave it alone.
     // --------------------------------------------------------
 
-    if (
-        !isGenericFilename(original)
-    ) {
+    if (!isGenericFilename(original)) {
 
         return {
             filename: original,
@@ -496,10 +446,7 @@ function analyzeFilename(
         )
     ) {
 
-        const clean =
-            sanitizeFilename(
-                contextName
-            );
+        const clean = sanitizeFilename(contextName);
 
 
         const finalName =
@@ -510,15 +457,9 @@ function analyzeFilename(
 
 
         return {
-
-            filename:
-                finalName,
-
-            changed:
-                true,
-
-            reason:
-                "page_context"
+            filename: finalName,
+            changed: true,
+            reason: "page_context"
         };
     }
 
@@ -541,9 +482,7 @@ function analyzeFilename(
 }
 
 
-function getContextName(
-    pageContext
-) {
+function getContextName( pageContext ) {
 
     if (!pageContext) {
         return null;
@@ -563,15 +502,9 @@ function getContextName(
     ];
 
 
-    for (
-        const candidate
-        of candidates
-    ) {
+    for (const candidate of candidates) {
 
-        if (
-            !candidate ||
-            candidate.length < 3
-        ) {
+        if ( !candidate || candidate.length < 3) {
             continue;
         }
 
@@ -584,23 +517,17 @@ function getContextName(
 }
 
 
-function isUsableContextName(
-    text
-) {
+function isUsableContextName( text ) {
 
     if (!text) {
         return false;
     }
 
 
-    const cleaned =
-        text.trim();
+    const cleaned = text.trim();
 
 
-    if (
-        cleaned.length < 3 ||
-        cleaned.length > 150
-    ) {
+    if (cleaned.length < 3 || cleaned.length > 150) {
         return false;
     }
 
@@ -627,11 +554,7 @@ function isUsableContextName(
     ]);
 
 
-    if (
-        genericTitles.has(
-            cleaned.toLowerCase()
-        )
-    ) {
+    if (genericTitles.has(cleaned.toLowerCase())) {
         return false;
     }
 
@@ -641,10 +564,7 @@ function isUsableContextName(
     // directly (not embedded in a real page). That's an echo
     // of the file itself, not genuine page content — using it
     // just reproduces the same unhelpful name.
-    if (
-        /\(\s*\d+\s*[×x]\s*\d+\s*\)\s*$/i
-            .test(cleaned)
-    ) {
+    if (/\(\s*\d+\s*[×x]\s*\d+\s*\)\s*$/i.test(cleaned)) {
         return false;
     }
 

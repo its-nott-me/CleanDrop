@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: cleandrop-mcp
+Version: 0.1.0
+Summary: Local MCP server exposing CleanDrop's expiry-tracking database to AI assistants
+Requires-Python: >=3.10
+Requires-Dist: mcp<3,>=2.3
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"

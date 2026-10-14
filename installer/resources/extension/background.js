@@ -66,17 +66,27 @@ function sendToCompanion(message, onSuccess) {
 // ============================================================
 // DOWNLOAD NOTIFICATION
 // ============================================================
-function showDownloadNotification(download) {
+function formatDuration(seconds) {
+    if (seconds === -1) return "Disabled";
 
-    const notificationId =
-        `cleandrop-download-${download.id}`;
+    if (seconds % 86400 === 0)
+        return `${seconds / 86400}d`;
+
+    if (seconds % 3600 === 0)
+        return `${seconds / 3600}h`;
+
+    if (seconds % 60 === 0)
+        return `${seconds / 60}m`;
+
+    return `${seconds}s`;
+}
+
+async function showDownloadNotification(download) {
+
+    const notificationId = `cleandrop-download-${download.id}`;
 
 
-    const filename =
-        download.filename
-            .split("\\")
-            .pop();
-
+    const filename = download.filename.split("\\").pop();
 
     chrome.notifications.create(
         notificationId,
@@ -92,7 +102,7 @@ function showDownloadNotification(download) {
 
             buttons: [
                 {
-                    title: "Schedule delete"
+                    title: `Schedule delete (${formatDuration(await getDefaultDeleteSeconds())})`
                 },
                 {
                     title: "Custom 🕒"

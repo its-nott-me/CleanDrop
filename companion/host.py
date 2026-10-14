@@ -8,7 +8,7 @@ import time
 # file and rebuild. It's included in every response, so a stale
 # exe is immediately visible in the console log (e.g. missing a
 # field you just added) instead of something you have to infer.
-HOST_BUILD = "2026-09-25-v1"
+HOST_BUILD = "2026-10-14"
 
 from pathlib import Path
 from datetime import datetime

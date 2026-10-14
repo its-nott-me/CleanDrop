@@ -52,34 +52,26 @@ def log(message):
 
 def scheduler_loop():
 
-    log(
-        "Scheduler started"
-    )
+    log("Scheduler started")
 
 
     while True:
 
         try:
 
-            downloads = (
-                get_expired_downloads()
-            )
+            downloads = (get_expired_downloads())
 
 
             for download in downloads:
 
-                download_id = (
-                    download["id"]
-                )
+                download_id = (download["id"])
 
 
                 # Atomically claim the deletion.
                 # If the user cancelled it after we fetched
                 # the expired rows, this returns False and
                 # we must NOT delete the file.
-                if not claim_download_for_deletion(
-                    download_id
-                ):
+                if not claim_download_for_deletion(download_id):
                     log(
                         f"Skipping {download_id}: "
                         "no longer scheduled"
@@ -100,9 +92,7 @@ def scheduler_loop():
                 )
 
 
-                status = (
-                    result["status"]
-                )
+                status = (result["status"])
 
 
                 update_delete_status(
@@ -140,18 +130,14 @@ def scheduler_loop():
 
 def llm_watchdog_loop():
 
-    log(
-        "LLM watchdog started"
-    )
+    log("LLM watchdog started")
 
 
     while True:
 
         try:
 
-            ensure_llm_server_running(
-                log=log
-            )
+            ensure_llm_server_running(log=log)
 
         except Exception as error:
 
@@ -161,6 +147,4 @@ def llm_watchdog_loop():
             )
 
 
-        time.sleep(
-            LLM_CHECK_INTERVAL
-        )
+        time.sleep(LLM_CHECK_INTERVAL)

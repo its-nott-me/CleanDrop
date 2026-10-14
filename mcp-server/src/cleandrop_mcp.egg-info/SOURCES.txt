@@ -1,0 +1,17 @@
+README.md
+pyproject.toml
+src/cleandrop_mcp/__init__.py
+src/cleandrop_mcp/__main__.py
+src/cleandrop_mcp/domain.py
+src/cleandrop_mcp/repository.py
+src/cleandrop_mcp/server.py
+src/cleandrop_mcp/service.py
+src/cleandrop_mcp.egg-info/PKG-INFO
+src/cleandrop_mcp.egg-info/SOURCES.txt
+src/cleandrop_mcp.egg-info/dependency_links.txt
+src/cleandrop_mcp.egg-info/entry_points.txt
+src/cleandrop_mcp.egg-info/requires.txt
+src/cleandrop_mcp.egg-info/top_level.txt
+tests/test_e2e_stdio.py
+tests/test_repository_contract.py
+tests/test_service.py

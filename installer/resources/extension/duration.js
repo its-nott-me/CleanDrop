@@ -1,23 +1,13 @@
-const params =
-    new URLSearchParams(
-        window.location.search
-    );
+const params = new URLSearchParams(window.location.search);
 
 
-const downloadId =
-    Number(
-        params.get("downloadId")
-    );
+const downloadId =Number(params.get("downloadId"));
 
 
-const notificationId =
-    params.get("notificationId");
+const notificationId = params.get("notificationId");
 
 
-const durationSelect =
-    document.getElementById(
-        "duration"
-    );
+const durationSelect = document.getElementById("duration");
 
 
 document
@@ -38,16 +28,12 @@ document
         "click",
         async () => {
 
-            const seconds =
-                Number(
-                    durationSelect.value
-                );
+            const seconds = Number( durationSelect.value );
 
 
             await chrome.runtime.sendMessage({
 
-                type:
-                    "custom_delete_duration",
+                type: "custom_delete_duration",
 
                 downloadId,
 

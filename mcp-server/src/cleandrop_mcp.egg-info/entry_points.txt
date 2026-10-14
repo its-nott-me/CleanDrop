@@ -1,0 +1,2 @@
+[console_scripts]
+cleandrop-mcp = cleandrop_mcp.__main__:main
