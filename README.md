@@ -1,5 +1,7 @@
 # CleanDrop
 
+[![CI](https://github.com/its-nott-me/CleanDrop/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/its-nott-me/CleanDrop/actions/workflows/ci.yml)
+
 **A smart download manager for Chrome that renames, tracks, and safely auto-expires your downloads - entirely on your own machine.**
 
 CleanDrop watches your downloads, gives cryptic filenames a real name (using a locally-run LLM - nothing ever leaves your machine), and lets you schedule files for deletion with a single click. No cloud services, no telemetry, no account required.
@@ -11,11 +13,12 @@ CleanDrop watches your downloads, gives cryptic filenames a real name (using a l
 * **One-click expiry.** A native notification appears after each download with **Schedule Delete** and a custom-duration option - no modal dialogs interrupting your browsing.
 * **Configurable default deletion time.** Choose the default delay used by **Schedule Delete** directly from CleanDrop's extension popup, including options such as hours, days, or **Never**. The setting persists across browser restarts.
 * **Scheduled-deletion management.** Click the CleanDrop extension icon to open the popup and view all currently scheduled deletions, including their filenames and deletion times. Any scheduled deletion can be cancelled from the popup.
+* **AI assistant integration (MCP).** An optional, local MCP server lets assistants like Claude Desktop answer "what's about to be deleted?" and "keep that one" from your database. Its query path is read-only and it can only *cancel* a pending deletion - it cannot delete anything. See [mcp-server](mcp-server/README.md).
 * **Persistent scheduling.** Scheduled deletions are stored in CleanDrop's local SQLite database and processed by the continuously running scheduler. Cancelling a deletion changes its status rather than removing its database record, so the scheduler safely ignores it.
 * **Smart renaming.** Generic filenames (`IMG_2043.jpg`, `download (7).pdf`, CDN-mangled names) are detected automatically and renamed using page context - first with fast local heuristics, falling back to a locally-run LLM when heuristics aren't enough.
 * **Identity-based safety.** Files are tracked by their actual filesystem identity (NTFS volume + file ID), not by path. Renaming or moving a tracked file doesn't break its schedule, and CleanDrop verifies identity before ever touching a file, so it can't accidentally delete the wrong one.
 * **Recycle Bin, not `rm`.** Scheduled deletions go to the Recycle Bin via the Windows Shell API - always recoverable, never a silent permanent delete.
-* **100% local.** The companion app, the database, and the LLM inference all run on your machine. No data is ever sent anywhere except to the local model server on `127.0.0.1`.
+* **Local by default.** The companion app, the database, and the LLM inference all run on your machine. The only network traffic is to the local model server on `127.0.0.1`. The one opt-in exception is the MCP server: if you connect it to a cloud assistant, the results it returns are processed by that assistant's provider (see Privacy).
 * **GUI installer and uninstaller.** CleanDrop includes a Windows GUI installer that lets you choose the installation directory and installs the companion components, extension resources, and uninstaller. The uninstaller is registered with Windows and can be launched from Installed Apps.
 
 ---
@@ -61,10 +64,23 @@ CleanDrop is split into two separate pieces on purpose:
 | ------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `cleandrop-host.exe`      | **Launched fresh by Chrome per native-messaging request**, exits immediately after responding | Handles filename suggestions and records scheduled downloads in SQLite                        |
 | `cleandrop-scheduler.exe` | **Runs continuously**, started once at login via Task Scheduler                               | Polls for expired downloads every 30 seconds and runs the local LLM watchdog every 15 seconds |
+| `cleandrop_mcp` (optional) | **Launched by the AI client per session** over stdio, exits with it | Read-only queries over the database, plus one guarded write: cancelling a pending deletion |
 
 This split exists because Chrome's native messaging (`sendNativeMessage`) kills the host process the instant it replies - any background work started inside that process (a thread waiting on an LLM call, a scheduler loop) gets silently killed mid-flight. Long-running work has to live in a process Chrome doesn't control the lifecycle of.
 
 The extension popup communicates with the native host to read scheduled deletions and cancel them. A cancellation changes the SQLite row to `CANCELLED`; the row is intentionally retained so the scheduler can distinguish a cancelled deletion from an untracked download.
+
+---
+
+## Ask an AI assistant about your downloads (MCP)
+
+![CleanDrop MCP demo](docs/cleandrop-mcp-demo.gif)
+
+CleanDrop includes a small [MCP](https://modelcontextprotocol.io) server so assistants like Claude Desktop can answer "what's going to be deleted soon?" and "keep that one" from your local database. It runs over stdio (no network port) and its query path is read-only. The only change it can make is cancelling a pending deletion; it cannot delete or restore files.
+
+Only files that were given an expiry are tracked, so this is not a full download history.
+
+Setup, tool reference and security decisions: [mcp-server/README.md](mcp-server/README.md).
 
 ---
 
@@ -126,6 +142,12 @@ cd companion
 python -m pytest test_*.py -v
 ```
 
+```powershell
+cd mcp-server
+pip install -e .[dev]
+python -m pytest
+```
+
 Inspect the local database directly:
 
 ```powershell
@@ -138,6 +160,7 @@ python check_schema.py   # verify table schema
 ## Privacy
 
 Everything runs locally: the SQLite database lives at `~/.cleandrop/cleandrop.db`, and filename suggestions are generated by a model you run yourself on `127.0.0.1` - nothing is sent to any third party. The only network permission the extension requests is for reading page titles/descriptions on pages you download from, used purely to improve local renaming suggestions.
+The MCP server itself makes no network requests, and nothing is exposed unless you add it to an assistant's config. But if you connect it to a cloud assistant, whatever the tools return (filenames, page titles, source sites, local paths) becomes part of that conversation and is processed by the assistant's provider. Incognito downloads are never exposed.
 
 ## License
 
